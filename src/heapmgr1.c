@@ -135,7 +135,7 @@ init_my_heap(void)
 static Chunk_T
 merge_chunk(Chunk_T c1, Chunk_T c2)
 {
-    /* c1 and c2 must be be adjacent */
+    /* c1 and c2 must be adjacent */
     assert(c1 < c2 && chunk_get_next_adjacent(c1, g_heap_start, g_heap_end) == c2);
     assert(chunk_get_status(c1) == CHUNK_FREE);
     assert(chunk_get_status(c2) == CHUNK_FREE);
@@ -143,8 +143,14 @@ merge_chunk(Chunk_T c1, Chunk_T c2)
     /* adjust the units and the next pointer of c1 */
     chunk_set_units(c1, chunk_get_units(c1) + chunk_get_units(c2) + 1);
     chunk_set_next_free_chunk(c1, chunk_get_next_free_chunk(c2));
+
+    /* Set the footer of the merged chunk */
+    Chunk_T merged_footer = get_chunk_footer(c1);
+    merged_footer->next = NULL; // Clear footer's next since it's now one chunk
+
     return c1;
 }
+
 /*--------------------------------------------------------------------*/
 /* split_chunk:
  * Split 'c' into two chunks s.t. the size of one chunk is 'units' and
