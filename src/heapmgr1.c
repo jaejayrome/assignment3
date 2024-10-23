@@ -323,8 +323,11 @@ allocate_more_memory(Chunk_T prev, size_t units)
     chunk_set_next_free_chunk(c, NULL);
     chunk_set_status(c, CHUNK_IN_USE);
 
-    /* Insert the newly allocated chunk 'c' to the free list.
-     * Note that the list is sorted in ascending order. */
+    /* Set footer for the newly allocated chunk */
+    Chunk_T c_footer = get_chunk_footer(c);
+    c_footer->next = NULL; // Initialize footer for the newly allocated chunk
+
+    /* Insert the newly allocated chunk 'c' to the free list. */
     if (g_free_head == NULL)
         insert_chunk(c);
     else
@@ -333,6 +336,7 @@ allocate_more_memory(Chunk_T prev, size_t units)
     assert(check_heap_validity());
     return c;
 }
+
 /*--------------------------------------------------------------*/
 /* heapmgr_malloc:
  * Dynamically allocate a memory capable of holding size bytes.
