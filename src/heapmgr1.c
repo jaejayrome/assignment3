@@ -193,14 +193,20 @@ insert_chunk(Chunk_T c)
     {
         g_free_head = c;
         chunk_set_next_free_chunk(c, NULL);
+        chunk_set_prev_free_chunk(c, NULL); // This chunk is both head and tail
     }
     else
     {
         assert(c < g_free_head);
         chunk_set_next_free_chunk(c, g_free_head);
-        if (chunk_get_next_adjacent(c, g_heap_start, g_heap_end) == g_free_head)
-            merge_chunk(c, g_free_head);
+        chunk_set_prev_free_chunk(g_free_head, c);
         g_free_head = c;
+
+        /* Try to merge the adjacent chunks if possible */
+        if (chunk_get_next_adjacent(c, g_heap_start, g_heap_end) == g_free_head)
+        {
+            merge_chunk(c, g_free_head);
+        }
     }
 }
 /*--------------------------------------------------------------------*/
@@ -222,7 +228,14 @@ insert_chunk_after(Chunk_T e, Chunk_T c)
     assert(chunk_get_status(c) != CHUNK_FREE);
 
     chunk_set_next_free_chunk(c, chunk_get_next_free_chunk(e));
+    chunk_set_prev_free_chunk(c, e);
     chunk_set_next_free_chunk(e, c);
+
+    if (chunk_get_next_free_chunk(c) != NULL)
+    {
+        chunk_set_prev_free_chunk(chunk_get_next_free_chunk(c), c);
+    }
+
     chunk_set_status(c, CHUNK_FREE);
 
     /* see if c can be merged with e */
@@ -247,14 +260,29 @@ remove_chunk_from_list(Chunk_T prev, Chunk_T c)
 {
     assert(chunk_get_status(c) == CHUNK_FREE);
 
+    /* If the chunk is at the head of the list */
     if (prev == NULL)
+    {
         g_free_head = chunk_get_next_free_chunk(c);
+        if (g_free_head != NULL)
+        {
+            chunk_set_prev_free_chunk(g_free_head, NULL);
+        }
+    }
     else
+    {
         chunk_set_next_free_chunk(prev, chunk_get_next_free_chunk(c));
+        if (chunk_get_next_free_chunk(c) != NULL)
+        {
+            chunk_set_prev_free_chunk(chunk_get_next_free_chunk(c), prev);
+        }
+    }
 
     chunk_set_next_free_chunk(c, NULL);
+    chunk_set_prev_free_chunk(c, NULL);
     chunk_set_status(c, CHUNK_IN_USE);
 }
+
 /*--------------------------------------------------------------------*/
 /* allocate_more_memory:
  * Allocate a new chunk which is capable of holding 'units' chunk
@@ -369,7 +397,7 @@ heapmgr_malloc(size_t size)
 /*--------------------------------------------------------------*/
 void heapmgr_free(void *m)
 {
-    Chunk_T c, w, prev;
+    Chunk_T c, prev_free_chunk, next_free_chunk;
 
     if (m == NULL)
         return;
@@ -381,24 +409,47 @@ void heapmgr_free(void *m)
     c = get_chunk_from_data_ptr(m);
     assert(chunk_get_status(c) != CHUNK_FREE);
 
-    prev = NULL;
+    /* Get the next and previous free chunks using the footer information */
+    prev_free_chunk = chunk_get_prev_free_chunk(c);
+    next_free_chunk = chunk_get_next_free_chunk(c);
 
-    /* traverse the free chunk list to find the
-       right location for 'c' */
-    for (w = g_free_head;
-         w != NULL;
-         w = chunk_get_next_free_chunk(w))
+    /* Set the chunk to free and insert into the free list */
+    chunk_set_status(c, CHUNK_FREE);
+
+    if (prev_free_chunk == NULL)
     {
-        if (c < w)
-            break;
-        prev = w;
+        /* If there is no previous chunk, this is the new head of the free list */
+        g_free_head = c;
+        chunk_set_next_free_chunk(c, next_free_chunk);
+        if (next_free_chunk != NULL)
+        {
+            chunk_set_prev_free_chunk(next_free_chunk, c);
+        }
+    }
+    else
+    {
+        /* Insert the chunk after the previous free chunk */
+        chunk_set_next_free_chunk(prev_free_chunk, c);
+        chunk_set_prev_free_chunk(c, prev_free_chunk);
+        if (next_free_chunk != NULL)
+        {
+            chunk_set_next_free_chunk(c, next_free_chunk);
+            chunk_set_prev_free_chunk(next_free_chunk, c);
+        }
     }
 
-    /* insert the new free chunk into the free list */
-    if (prev == NULL)
-        insert_chunk(c);
-    else
-        insert_chunk_after(prev, c);
+    /* Merge with the adjacent free chunks, if possible */
+    Chunk_T next_adjacent = chunk_get_next_adjacent(c, g_heap_start, g_heap_end);
+    if (next_adjacent != NULL && chunk_get_status(next_adjacent) == CHUNK_FREE)
+    {
+        c = merge_chunk(c, next_adjacent);
+    }
+
+    Chunk_T prev_adjacent = chunk_get_prev_adjacent(c, g_heap_start, g_heap_end);
+    if (prev_adjacent != NULL && chunk_get_status(prev_adjacent) == CHUNK_FREE)
+    {
+        c = merge_chunk(prev_adjacent, c);
+    }
 
     /* double check if everything is OK */
     assert(check_heap_validity());
