@@ -1,0 +1,15 @@
+#!/bin/bash
+
+######################################################################
+# testheap1_add tests four HeapMgr implementations.
+# Executable files named testheapmgrgnu, testheapmgrkr,testheapmgrbase,
+# and testheapmgr1 must exist before executing this script.
+# To execute the script, simply type testheap1.
+######################################################################
+
+echo "       Executable          Test   Count   Size Time_m Time_f   Time        Mem"
+./testheapimp_add ../test/testheapmgrgnu_add
+./testheapimp_add ../test/testheapmgrkr_add
+./testheapimp_add ../test/testheapmgrbase_add
+./testheapimp_add ../test/testheapmgr1_add
+# ./testheapimp ./testheapmgr2
