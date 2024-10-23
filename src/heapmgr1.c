@@ -172,8 +172,15 @@ split_chunk(Chunk_T c, size_t units)
     chunk_set_status(c2, CHUNK_IN_USE);
     chunk_set_next_free_chunk(c2, chunk_get_next_free_chunk(c));
 
+    /* Set footers for both chunks */
+    Chunk_T c_footer = get_chunk_footer(c);
+    Chunk_T c2_footer = get_chunk_footer(c2);
+    c_footer->next = NULL;  // Clear footer's next for the free list in the first chunk
+    c2_footer->next = NULL; // Clear for the newly split chunk
+
     return c2;
 }
+
 /*--------------------------------------------------------------------*/
 /* insert_chunk:
  * Insert a chunk, 'c', into the head of the free chunk list.
