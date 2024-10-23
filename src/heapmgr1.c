@@ -129,7 +129,7 @@ init_my_heap(void)
 /*--------------------------------------------------------------------*/
 /* merge_chunk:
  * Merge two adjacent chunks and return the merged chunk.
- * Returns NULL on error.
+ * Returns the merged chunk.
  */
 /*--------------------------------------------------------------------*/
 static Chunk_T
@@ -140,15 +140,18 @@ merge_chunk(Chunk_T c1, Chunk_T c2)
     assert(chunk_get_status(c1) == CHUNK_FREE);
     assert(chunk_get_status(c2) == CHUNK_FREE);
 
-    /* adjust the units and the next pointer of c1 */
-    chunk_set_units(c1, chunk_get_units(c1) + chunk_get_units(c2) + 1);
+    /* Adjust the units in the header of c1 (merged chunk) */
+    chunk_set_units(c1, chunk_get_units(c1) + chunk_get_units(c2) + 1); // +1 for the footer of c1
+
+    /* Update the next free chunk pointer of c1 to point to the next free chunk after c2 */
     chunk_set_next_free_chunk(c1, chunk_get_next_free_chunk(c2));
 
-    /* Set the footer of the merged chunk */
+    /* Update the footer of the merged chunk */
     Chunk_T merged_footer = get_chunk_footer(c1);
-    merged_footer->next = NULL; // Clear footer's next since it's now one chunk
+    chunk_set_units(merged_footer, chunk_get_units(c1)); // Set the correct size in the footer
+    merged_footer->next = chunk_get_next_free_chunk(c2); // Set the footer's next to point to the next free chunk
 
-    return c1;
+    return c1; // Return the merged chunk
 }
 
 /*--------------------------------------------------------------------*/
@@ -168,11 +171,11 @@ split_chunk(Chunk_T c, size_t units)
     assert(chunk_get_status(c) == CHUNK_FREE);
     assert(chunk_get_units(c) > units + 1); /* assume chunk with header unit */
 
-    /* adjust the size of the first chunk */
+    /* Adjust the size of the first chunk */
     all_units = chunk_get_units(c);
     chunk_set_units(c, all_units - units - 1);
 
-    /* prepare for the second chunk */
+    /* Prepare for the second chunk */
     c2 = chunk_get_next_adjacent(c, g_heap_start, g_heap_end);
     chunk_set_units(c2, units);
     chunk_set_status(c2, CHUNK_IN_USE);
@@ -180,9 +183,12 @@ split_chunk(Chunk_T c, size_t units)
 
     /* Set footers for both chunks */
     Chunk_T c_footer = get_chunk_footer(c);
+    chunk_set_units(c_footer, chunk_get_units(c)); // Set the correct size for the first chunk's footer
+    c_footer->next = NULL;                         // Clear footer's next for the free list in the first chunk
+
     Chunk_T c2_footer = get_chunk_footer(c2);
-    c_footer->next = NULL;  // Clear footer's next for the free list in the first chunk
-    c2_footer->next = NULL; // Clear for the newly split chunk
+    chunk_set_units(c2_footer, chunk_get_units(c2)); // Set the correct size for the second chunk's footer
+    c2_footer->next = NULL;                          // Clear footer's next for the second chunk
 
     return c2;
 }
@@ -260,6 +266,9 @@ insert_chunk_after(Chunk_T e, Chunk_T c)
     if (n != NULL && chunk_get_status(n) == CHUNK_FREE)
         c = merge_chunk(c, n);
 
+    // Update footer after merge
+    Chunk_T merged_footer = get_chunk_footer(c);
+    merged_footer->next = NULL;
     return c;
 }
 /*--------------------------------------------------------------------*/
@@ -419,18 +428,18 @@ void heapmgr_free(void *m)
     if (m == NULL)
         return;
 
-    /* check everything is OK before freeing 'm' */
+    /* Check everything is OK before freeing 'm' */
     assert(check_heap_validity());
 
-    /* get the chunk header pointer from m */
+    /* Get the chunk header pointer from m */
     c = get_chunk_from_data_ptr(m);
     assert(chunk_get_status(c) != CHUNK_FREE);
 
     /* Get the next and previous free chunks using the footer information */
-    prev_free_chunk = chunk_get_prev_free_chunk(c);
-    next_free_chunk = chunk_get_next_free_chunk(c);
+    prev_free_chunk = chunk_get_prev_free_chunk(c); // Get the previous free chunk's footer
+    next_free_chunk = chunk_get_next_free_chunk(c); // Get the next free chunk's header
 
-    /* Set the chunk to free and insert into the free list */
+    /* Set the chunk to free and insert it into the free list */
     chunk_set_status(c, CHUNK_FREE);
 
     if (prev_free_chunk == NULL)
@@ -460,14 +469,24 @@ void heapmgr_free(void *m)
     if (next_adjacent != NULL && chunk_get_status(next_adjacent) == CHUNK_FREE)
     {
         c = merge_chunk(c, next_adjacent);
+
+        /* After merging, update the footer of the merged chunk */
+        Chunk_T merged_footer = get_chunk_footer(c);
+        chunk_set_units(merged_footer, chunk_get_units(c)); // Set the correct size in the footer
+        merged_footer->next = chunk_get_next_free_chunk(c); // Set the footer's next pointer
     }
 
     Chunk_T prev_adjacent = chunk_get_prev_adjacent(c, g_heap_start, g_heap_end);
     if (prev_adjacent != NULL && chunk_get_status(prev_adjacent) == CHUNK_FREE)
     {
         c = merge_chunk(prev_adjacent, c);
+
+        /* After merging, update the footer of the merged chunk */
+        Chunk_T merged_footer = get_chunk_footer(c);
+        chunk_set_units(merged_footer, chunk_get_units(c)); // Set the correct size in the footer
+        merged_footer->next = chunk_get_next_free_chunk(c); // Set the footer's next pointer
     }
 
-    /* double check if everything is OK */
+    /* Double check if everything is OK */
     assert(check_heap_validity());
 }
