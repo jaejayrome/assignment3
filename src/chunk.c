@@ -49,6 +49,7 @@ void chunk_set_next_free_chunk(Chunk_T c, Chunk_T next)
    c->next = next;
 }
 /*--------------------------------------------------------------------*/
+// note for this method, we are returning the footer and not the header
 Chunk_T
 chunk_get_prev_free_chunk(Chunk_T c)
 {
@@ -65,12 +66,15 @@ chunk_get_prev_free_chunk(Chunk_T c)
 /*--------------------------------------------------------------------*/
 void chunk_set_prev_free_chunk(Chunk_T c, Chunk_T prev)
 {
+   // assume that c and prev are both headers 
    /* To set the previous free chunk, modify the footer of the previous chunk */
    assert(c != NULL);
    assert(prev != NULL);
 
    Chunk_T footer = get_chunk_footer(c);
-   footer->next = c;
+   Chunk_T prev_footer = get_chunk_footer(prev);
+   // setting the current footer to point to the previous's footer
+   footer->next = prev_footer;
 }
 /*--------------------------------------------------------------------*/
 // returns next header 
