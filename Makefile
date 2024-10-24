@@ -49,3 +49,12 @@ timebase:
 
 clean:
 	rm -f $(TEST_DIR)/testheapmgrgnu $(TEST_DIR)/testheapmgrkr $(TEST_DIR)/testheapmgrbase $(TEST_DIR)/testheapmgr1 $(TEST_DIR)/testheapmgr2
+
+upload:
+	sshpass -p 'C^JvZP.J39' scp  -r -P 2222 ./src  sp202481390@sp04.snucse.org:~/assignment3
+
+enter:
+	sshpass -p 'C^JvZP.J39' ssh sp202481390@sp04.snucse.org -p 2222
+
+run:
+	sshpass -p 'C^JvZP.J39' ssh sp202481390@sp04.snucse.org -p 2222 && make time1_add
