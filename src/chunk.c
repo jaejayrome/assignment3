@@ -1,155 +1,107 @@
-/*--------------------------------------------------------------------*/
-/* chunkbase.c                                                        */
-/* Author: Donghwi Kim, KyoungSoo Park                                */
-/*--------------------------------------------------------------------*/
-
-#include <stdio.h>
-#include <stddef.h>
-#include <unistd.h>
-#include <stdlib.h>
-#include <assert.h>
-
 #include "chunk.h"
+#include <string.h>
+#include <stdio.h>
 
-// get footer operation
-Chunk_T get_chunk_footer(Chunk_T c) {
-   Chunk_T footer = c + c-> units + 1;
-   return footer;
+int chunk_get_status(Header * c) {
+    return c->status;
 }
 
-/*--------------------------------------------------------------------*/
-int chunk_get_status(Chunk_T c)
-{
-   return c->status;
-}
-/*--------------------------------------------------------------------*/
-void chunk_set_status(Chunk_T c, int status)
-{
-   c->status = status;
-}
-/*--------------------------------------------------------------------*/
-int chunk_get_units(Chunk_T c)
-{
-   return c->units;
-}
-/*--------------------------------------------------------------------*/
-void chunk_set_units(Chunk_T c, int units)
-{
-   c->units = units;
-}
-/*--------------------------------------------------------------------*/
-Chunk_T
-chunk_get_next_free_chunk(Chunk_T c)
-{
-   return c->next;
-}
-/*--------------------------------------------------------------------*/
-void chunk_set_next_free_chunk(Chunk_T c, Chunk_T next)
-{
-   c->next = next;
-}
-/*--------------------------------------------------------------------*/
-// note for this method, we are returning the footer and not the header
-Chunk_T
-chunk_get_prev_free_chunk(Chunk_T c)
-{
-   assert(c != NULL);
-
-   Chunk_T footer = get_chunk_footer(c);
-
-   /* Use the current footer's pointer to point to the previous free chunk's footer */
-   Chunk_T prev_free_footer = footer->next;
-
-   return prev_free_footer ? prev_free_footer : NULL;
+void chunk_set_status(Header * c, ChunkStatus status) {
+    c->status = status;
+    chunk_set_footer(c);
 }
 
-/*--------------------------------------------------------------------*/
-void chunk_set_prev_free_chunk(Chunk_T c, Chunk_T prev)
-{
-   // assume that c and prev are both headers 
-   /* To set the previous free chunk, modify the footer of the previous chunk */
-   assert(c != NULL);
-   assert(prev != NULL);
-
-   Chunk_T footer = get_chunk_footer(c);
-   Chunk_T prev_footer = get_chunk_footer(prev);
-   // setting the current footer to point to the previous's footer
-   footer->next = prev_footer;
-}
-/*--------------------------------------------------------------------*/
-// returns next header 
-Chunk_T
-chunk_get_next_adjacent(Chunk_T c, void* start, void* end)
-{
-   Chunk_T n;
-
-   assert((void *)c >= start);
-
-   /* Note that a chunk consists of one chunk unit for a header, and
-    * many chunk units for data and one chunk unit for a footer */
-   n = c + c->units + 2;
-
-   /* If 'c' is the last chunk in memory space, then return NULL. */
-   if ((void *)n >= end)
-      return NULL;
-   
-   return n;
-}
-/*--------------------------------------------------------------------*/
-// returns prev header
-Chunk_T
-chunk_get_prev_adjacent(Chunk_T c, void *start, void *end)
-{
-   assert(c != NULL);
-   assert(start != NULL);
-   assert(end != NULL);
-
-   // we move back by 1 since footer would also be 1 chunk unit
-   Chunk_T prev_footer = c - 1;
-
-   /* Ensure we are within bounds */
-   if ((void *)prev_footer < start) {
-       return NULL; /* The previous block is outside the memory range */
-   }
-
-   /* Now, go from the footer to the header of the previous chunk.
-    * The header is located by moving back from the footer based on the chunk's size (units).
-    */
-   Chunk_T prev_header = prev_footer - prev_footer->units - 1;
-
-   /* Ensure the header is within bounds */
-   if ((void *)prev_header < start || (void *)prev_header >= end) {
-       return NULL; /* The previous header is outside the memory range */
-   }
-
-   return prev_header;
+int chunk_get_units(Header * c) {
+    return c->units;
 }
 
+void chunk_set_units(Header * c, int units) {
+    c->units = units;
+    chunk_set_footer(c);
+}
+
+Header * chunk_get_next_free_chunk(Header * c) {
+    return c->next;
+}
+
+void chunk_set_next_free_chunk(Header * c, Header * next) {
+    c->next = next;
+}
+
+Header * chunk_get_prev_free_chunk(Header * c) {
+    return c->prev;
+}
+
+void chunk_set_prev_free_chunk(Header * c, Header * prev) {
+    c->prev = prev;
+}
+
+void chunk_set_footer(Header * c) {
+    char *footer_addr = (char *) c + (c->units + HEADER_UNITS) * CHUNK_UNIT;
+    Footer *footer = (Footer *) footer_addr;
+    footer->units = c->units;
+}
+
+int chunk_get_footer_units(Header * c) {
+    char *footer_addr = (char *) c + (c->units + HEADER_UNITS) * CHUNK_UNIT;
+    Footer *footer = (Footer *) footer_addr;
+    return footer->units;
+}
+
+size_t chunk_total_size(Header * c) {
+    return (HEADER_UNITS + c->units + FOOTER_UNITS) * CHUNK_UNIT;
+}
+
+Header * chunk_get_next_adjacent(Header * c, void *start, void *end) {
+    char *next_addr = (char *) c + chunk_total_size(c);
+    if ((void *) next_addr >= end) return NULL;
+    return (Header *) next_addr;
+}
+
+Header * chunk_get_prev_adjacent(Header * c, void *start, void *end) {
+    if ((void *) c <= start) return NULL;
+
+    /* get the footer of the previous chunk */
+    char *footer_addr = (char *) c - FOOTER_UNITS*CHUNK_UNIT;
+    int prev_units = *((int *) (footer_addr));
+
+    /* compute the start address of the previous chunk */
+    size_t prev_chunk_size = (HEADER_UNITS + prev_units + FOOTER_UNITS) * CHUNK_UNIT;
+    char *prev_addr = (char *) c - prev_chunk_size;
+
+    if ((void *) prev_addr < start)
+        return NULL;
+
+    return (Header *) prev_addr;
+}
 
 #ifndef NDEBUG
-/*--------------------------------------------------------------------*/
-int chunk_is_valid(Chunk_T c, void *start, void *end)
-/* Return 1 (TRUE) iff c is valid */
-{
-   assert(c != NULL);
-   assert(start != NULL);
-   assert(end != NULL);
 
-   if (c < (Chunk_T)start)
-   {
-      fprintf(stderr, "Bad heap start\n");
-      return 0;
-   }
-   if (c >= (Chunk_T)end)
-   {
-      fprintf(stderr, "Bad heap end\n");
-      return 0;
-   }
-   if (c->units == 0)
-   {
-      fprintf(stderr, "Zero units\n");
-      return 0;
-   }
-   return 1;
+int chunk_is_valid(Header * c, void *start, void *end) {
+    if ((void *) c < start || (void *) c >= end) {
+        fprintf(stderr, "Header at %p is out of heap bounds (%p - %p)\n", (void *) c, (void *) start, (void *) end);
+        return 0;
+    }
+
+    if (c->units <= 0) {
+        fprintf(stderr, "Header at %p has invalid units %d\n", (void *) c, c->units);
+        return 0;
+    }
+
+    if (c->status != CHUNK_FREE && c->status != CHUNK_IN_USE) {
+        fprintf(stderr, "Header at %p has invalid status %d\n", (void *) c, c->status);
+        return 0;
+    }
+
+    /* check if the footer matches the header */
+    int footer_units = chunk_get_footer_units(c);
+    if (footer_units != c->units) {
+        fprintf(stderr, "Header at %p has wrong footer (units: %d != %d)\n",
+                (void *) c, c->units, footer_units);
+        return 0;
+    }
+
+    return 1;
 }
+
 #endif

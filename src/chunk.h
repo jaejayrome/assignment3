@@ -1,62 +1,61 @@
-#ifndef CHUNKBASE_H
-#define CHUNKBASE_H
+#ifndef _CHUNK_H_
+#define _CHUNK_H_
 
-#include <stddef.h> // for size_t
-#include <assert.h> // for assert
+#pragma once
 
-/* Define the Chunk_T structure representing a memory chunk */
-typedef struct Chunk *Chunk_T;
+#include <stdbool.h>
+#include <unistd.h>
 
-/* Structure representing a chunk in memory */
-struct Chunk
-{
-    Chunk_T next; /* Pointer to the next free chunk */
-    int units;    /* Number of chunk units */
-    int status;   /* CHUNK_FREE or CHUNK_IN_USE */
+typedef enum {
+    CHUNK_FREE,
+    CHUNK_IN_USE,
+} ChunkStatus;
+
+struct Header {
+    int units;            // capacity of a chunk in units
+    ChunkStatus status;   // CHUNK_FREE or CHUNK_IN_USE
+    struct Header * next; // next chunk in the free list
+    struct Header * prev; // previous chunk in the free list
 };
+typedef struct Header Header;
 
-enum
-{
-    CHUNK_UNIT = 16, /* 16 = sizeof(struct Chunk) */
+struct Footer {
+    int units;
 };
+typedef struct Footer Footer;
 
-/* Status constants */
-#define CHUNK_FREE 0
-#define CHUNK_IN_USE 1
+#define INT_CEIL(x, y) (((x)+(y)-1)/(y))
 
-Chunk_T get_chunk_footer(Chunk_T c);
+// Size of allocation chunks
+#define CHUNK_UNIT 16
 
-/* Get and set chunk status */
-int chunk_get_status(Chunk_T c);
-void chunk_set_status(Chunk_T c, int status);
+// Size of the header and footer in units
+#define HEADER_UNITS INT_CEIL(sizeof(Header), CHUNK_UNIT)
+#define FOOTER_UNITS INT_CEIL(sizeof(Footer), CHUNK_UNIT)
 
-/* Get and set chunk units */
-int chunk_get_units(Chunk_T c);
-void chunk_set_units(Chunk_T c, int units);
+// Amount of control units for each chunk
+#define EXTRA_UNITS HEADER_UNITS + FOOTER_UNITS
 
-/* Get and set next free chunk */
-Chunk_T chunk_get_next_free_chunk(Chunk_T c);
-void chunk_set_next_free_chunk(Chunk_T c, Chunk_T next);
+// Functions
+int chunk_get_status(Header * c);
+void chunk_set_status(Header * c, ChunkStatus status);
+int chunk_get_units(Header * c);
+void chunk_set_units(Header * c, int units);
+Header * chunk_get_next_free_chunk(Header * c);
+void chunk_set_next_free_chunk(Header * c, Header * next);
+Header * chunk_get_prev_free_chunk(Header * c);
+void chunk_set_prev_free_chunk(Header * c, Header * prev);
+Header * chunk_get_next_adjacent(Header * c, void *start, void *end);
+Header * chunk_get_prev_adjacent(Header * c, void *start, void *end);
+void chunk_set_footer(Header * c);
+int chunk_get_footer_units(Header * c);
+int chunk_get_footer_status(Header * c);
+size_t chunk_total_size(Header * c);
 
-/* Get and set previous free chunk (treated as footer) */
-Chunk_T chunk_get_prev_free_chunk(Chunk_T c);
-void chunk_set_prev_free_chunk(Chunk_T c, Chunk_T prev);
-
-/* Get the next adjacent chunk in memory */
-Chunk_T chunk_get_next_adjacent(Chunk_T c, void *start, void *end);
-
-/* Get the previous adjacent chunk in memory (footer logic) */
-Chunk_T chunk_get_prev_adjacent(Chunk_T c, void *start, void *end);
-
-/* Get the next free chunk in the free list */
-Chunk_T chunk_get_next_free(Chunk_T c);
-
-/* Get the previous free chunk in the free list (using footer) */
-Chunk_T chunk_get_prev_free(Chunk_T c);
-
-/* Debug: Check if a chunk is valid */
 #ifndef NDEBUG
-int chunk_is_valid(Chunk_T c, void *start, void *end);
-#endif
 
-#endif /* CHUNKBASE_H */
+int chunk_is_valid(Header * c, void *start, void *end);
+
+#endif /* NDEBUG */
+
+#endif /* _CHUNK_H_ */
