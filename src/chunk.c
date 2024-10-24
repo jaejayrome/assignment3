@@ -12,7 +12,7 @@
 #include "chunk.h"
 
 // get footer operation
-static Chunk_T get_chunk_footer(Chunk_T c) {
+Chunk_T get_chunk_footer(Chunk_T c) {
    Chunk_T footer = c + c-> units + 1;
    return footer;
 }

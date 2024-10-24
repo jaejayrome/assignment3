@@ -24,6 +24,8 @@ enum
 #define CHUNK_FREE 0
 #define CHUNK_IN_USE 1
 
+Chunk_T get_chunk_footer(Chunk_T c);
+
 /* Get and set chunk status */
 int chunk_get_status(Chunk_T c);
 void chunk_set_status(Chunk_T c, int status);
