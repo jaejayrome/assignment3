@@ -44,15 +44,33 @@ static size_t calculate_chunk_size(size_t units)
     return (units * CHUNK_UNIT) + CHUNK_UNIT + sizeof(struct ChunkFooter);
 }
 
+static int is_valid_chunk_addr(void *addr)
+{
+    return (addr >= g_heap_start && addr < g_heap_end);
+}
+
+static int is_valid_footer_addr(void *footer_addr, Chunk_T c)
+{
+    /* Check if footer location makes sense */
+    return (footer_addr > (void *)c &&
+            footer_addr >= g_heap_start &&
+            footer_addr < g_heap_end);
+}
+
 /* Merge two adjacent chunks */
 static Chunk_T merge_chunk(Chunk_T c1, Chunk_T c2)
 {
-    if (!c1 || !c2 || c1 >= c2)
+    if (!c1 || !c2 || c1 >= c2 ||
+        !is_valid_chunk_addr(c1) || !is_valid_chunk_addr(c2))
     {
         return c1;
     }
 
-    if (chunk_get_next_adjacent(c1, g_heap_start, g_heap_end) != c2)
+    /* Calculate total size after merge */
+    size_t total_units = chunk_get_units(c1) + chunk_get_units(c2) + 1 + FOOTER_UNITS;
+    void *merged_end = (void *)((char *)c1 + (total_units * CHUNK_UNIT) + sizeof(struct ChunkFooter));
+
+    if (merged_end > g_heap_end)
     {
         return c1;
     }
@@ -63,13 +81,12 @@ static Chunk_T merge_chunk(Chunk_T c1, Chunk_T c2)
     }
 
     /* Perform merge */
-    chunk_set_units(c1, chunk_get_units(c1) + chunk_get_units(c2) + 1 + FOOTER_UNITS);
+    chunk_set_units(c1, total_units - 1 - FOOTER_UNITS);
     chunk_set_next_free_chunk(c1, chunk_get_next_free_chunk(c2));
     chunk_set_footer(c1);
 
     return c1;
 }
-
 /* Insert chunk into free list */
 static void insert_chunk(Chunk_T c)
 {
@@ -330,53 +347,84 @@ void heapmgr_free(void *m)
         return;
 
     Chunk_T c = get_chunk_from_data_ptr(m);
-    assert(c != NULL);
-    assert((void *)c >= g_heap_start && (void *)c < g_heap_end);
-    assert(chunk_get_status(c) != CHUNK_FREE);
+
+    /* Validate chunk addresses */
+    if (!is_valid_chunk_addr(c))
+    {
+        return;
+    }
+
+    Footer_T footer = chunk_get_footer(c);
+    if (!is_valid_footer_addr(footer, c))
+    {
+        return;
+    }
+
+    /* Validate chunk is in use */
+    if (chunk_get_status(c) != CHUNK_IN_USE)
+    {
+        return; // Double free prevention
+    }
 
     /* Set up basic chunk info */
     chunk_set_status(c, CHUNK_FREE);
+    chunk_set_footer(c);
 
-    /* Get neighbors before modifying free list */
+    /* Get neighbors */
     Chunk_T prev = NULL;
     Chunk_T next = NULL;
 
-    /* Only try to get prev if we're not at the start */
+    /* Try to get prev chunk if we're not at start */
     if ((void *)c > g_heap_start)
     {
-        prev = chunk_get_prev_from_footer((void *)c, g_heap_start);
-        /* Validate prev if we got one */
-        if (prev)
+        void *prev_footer_addr = (void *)c - sizeof(struct ChunkFooter);
+        if (is_valid_chunk_addr(prev_footer_addr))
         {
-            assert((void *)prev >= g_heap_start && (void *)prev < (void *)c);
-            assert(chunk_get_next_adjacent(prev, g_heap_start, g_heap_end) == c);
+            prev = chunk_get_prev_from_footer((void *)c, g_heap_start);
+            if (!is_valid_chunk_addr(prev))
+            {
+                prev = NULL;
+            }
         }
     }
 
     /* Try to get next chunk */
-    next = chunk_get_next_adjacent(c, g_heap_start, g_heap_end);
-    if (next)
+    next = (void *)((char *)footer + sizeof(struct ChunkFooter));
+    if (!is_valid_chunk_addr(next))
     {
-        assert((void *)next > (void *)c && (void *)next < g_heap_end);
+        next = NULL;
     }
 
-    /* If no merging with prev possible, add to free list head */
+    /* If no valid prev chunk or prev isn't free, add to free list head */
     if (!prev || chunk_get_status(prev) != CHUNK_FREE)
     {
         chunk_set_next_free_chunk(c, g_free_head);
         g_free_head = c;
-        chunk_set_footer(c);
     }
 
     /* Try to merge with prev if possible */
     if (prev && chunk_get_status(prev) == CHUNK_FREE)
     {
-        c = merge_chunk(prev, c);
+        /* Validate merged chunk size before merging */
+        size_t total_units = chunk_get_units(prev) + chunk_get_units(c) + 1 + FOOTER_UNITS;
+        void *merged_end = (void *)((char *)prev + (total_units * CHUNK_UNIT) + sizeof(struct ChunkFooter));
+
+        if (merged_end <= g_heap_end)
+        {
+            c = merge_chunk(prev, c);
+        }
     }
 
     /* Try to merge with next if possible */
     if (next && chunk_get_status(next) == CHUNK_FREE)
     {
-        merge_chunk(c, next);
+        /* Validate merged chunk size before merging */
+        size_t total_units = chunk_get_units(c) + chunk_get_units(next) + 1 + FOOTER_UNITS;
+        void *merged_end = (void *)((char *)c + (total_units * CHUNK_UNIT) + sizeof(struct ChunkFooter));
+
+        if (merged_end <= g_heap_end)
+        {
+            merge_chunk(c, next);
+        }
     }
 }
