@@ -10,8 +10,9 @@ typedef struct ChunkFooter *Footer_T;
 struct Chunk
 {
     Chunk_T next; /* Next chunk in free list */
-    int units;    /* Capacity in chunk units */
-    int status;   /* CHUNK_FREE or CHUNK_IN_USE */
+    Chunk_T prev;
+    int units;  /* Capacity in chunk units */
+    int status; /* CHUNK_FREE or CHUNK_IN_USE */
 };
 
 struct ChunkFooter
