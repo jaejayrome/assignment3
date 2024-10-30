@@ -1,61 +1,48 @@
-#ifndef _CHUNK_H_
-#define _CHUNK_H_
-
-#pragma once
+#ifndef _CHUNK_BASE_H_
+#define _CHUNK_BASE_H_
 
 #include <stdbool.h>
 #include <unistd.h>
 
-typedef enum {
+typedef struct Chunk *Chunk_T;
+typedef struct ChunkFooter *Footer_T;
+
+struct Chunk
+{
+    Chunk_T next; /* Next chunk in free list */
+    int units;    /* Capacity in chunk units */
+    int status;   /* CHUNK_FREE or CHUNK_IN_USE */
+};
+
+struct ChunkFooter
+{
+    Chunk_T header; /* Pointer back to chunk header */
+};
+
+enum
+{
     CHUNK_FREE,
     CHUNK_IN_USE,
-} ChunkStatus;
-
-struct Header {
-    int units;            // capacity of a chunk in units
-    ChunkStatus status;   // CHUNK_FREE or CHUNK_IN_USE
-    struct Header * next; // next chunk in the free list
-    struct Header * prev; // previous chunk in the free list
 };
-typedef struct Header Header;
 
-struct Footer {
-    int units;
+enum
+{
+    CHUNK_UNIT = 16,
 };
-typedef struct Footer Footer;
 
-#define INT_CEIL(x, y) (((x)+(y)-1)/(y))
+/* Original functions */
+int chunk_get_status(Chunk_T c);
+void chunk_set_status(Chunk_T c, int status);
+int chunk_get_units(Chunk_T c);
+void chunk_set_units(Chunk_T c, int units);
+Chunk_T chunk_get_next_free_chunk(Chunk_T c);
+void chunk_set_next_free_chunk(Chunk_T c, Chunk_T next);
 
-// Size of allocation chunks
-#define CHUNK_UNIT 16
+/* Modified functions to include bounds */
+Chunk_T chunk_get_next_adjacent(Chunk_T c, void *start, void *end);
+Footer_T chunk_get_footer(Chunk_T c);
+void chunk_set_footer(Chunk_T c);
+Chunk_T chunk_get_prev_from_footer(void *ptr, void *start);
+int chunk_is_valid(Chunk_T c, void *start, void *end);
 
-// Size of the header and footer in units
-#define HEADER_UNITS INT_CEIL(sizeof(Header), CHUNK_UNIT)
-#define FOOTER_UNITS INT_CEIL(sizeof(Footer), CHUNK_UNIT)
-
-// Amount of control units for each chunk
-#define EXTRA_UNITS HEADER_UNITS + FOOTER_UNITS
-
-// Functions
-int chunk_get_status(Header * c);
-void chunk_set_status(Header * c, ChunkStatus status);
-int chunk_get_units(Header * c);
-void chunk_set_units(Header * c, int units);
-Header * chunk_get_next_free_chunk(Header * c);
-void chunk_set_next_free_chunk(Header * c, Header * next);
-Header * chunk_get_prev_free_chunk(Header * c);
-void chunk_set_prev_free_chunk(Header * c, Header * prev);
-Header * chunk_get_next_adjacent(Header * c, void *start, void *end);
-Header * chunk_get_prev_adjacent(Header * c, void *start, void *end);
-void chunk_set_footer(Header * c);
-int chunk_get_footer_units(Header * c);
-int chunk_get_footer_status(Header * c);
-size_t chunk_total_size(Header * c);
-
-#ifndef NDEBUG
-
-int chunk_is_valid(Header * c, void *start, void *end);
-
-#endif /* NDEBUG */
-
-#endif /* _CHUNK_H_ */
+#endif
