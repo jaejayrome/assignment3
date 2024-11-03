@@ -62,6 +62,9 @@ run:
 run-gnu-base:
 	sshpass -p 'C^JvZP.J39' ssh sp202481390@sp04.snucse.org -p 2222 'cd assignment3 && ./run/testheapimp_add ./test/testheapmgrbase_add'
 
+run-gnu-kr:
+	sshpass -p 'C^JvZP.J39' ssh sp202481390@sp04.snucse.org -p 2222 'cd assignment3 && ./run/testheapimp_add ./test/testheapmgrkr_add'
+
 upload-run:
 	sshpass -p 'C^JvZP.J39' scp  -r -P 2222 ./test/testheapimp_add  sp202481390@sp04.snucse.org:~/assignment3/run/testheapimp_add
 
