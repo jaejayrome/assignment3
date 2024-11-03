@@ -57,4 +57,10 @@ enter:
 	sshpass -p 'C^JvZP.J39' ssh sp202481390@sp04.snucse.org -p 2222
 
 run:
-	sshpass -p 'C^JvZP.J39' ssh sp202481390@sp04.snucse.org -p 2222 && make time1_add
+	sshpass -p 'C^JvZP.J39' ssh sp202481390@sp04.snucse.org -p 2222 'cd assignment3 && make time1_add && ./run/testheapimp_add ./test/testheapmgr1_add'
+
+upload-run:
+	sshpass -p 'C^JvZP.J39' scp  -r -P 2222 ./test/testheapimp_add  sp202481390@sp04.snucse.org:~/assignment3/run/testheapimp_add
+
+
+
