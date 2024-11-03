@@ -12,4 +12,3 @@ echo "       Executable          Test   Count   Size   Time        Mem"
 ./testheapimp ./testheapmgrkr
 ./testheapimp ./testheapmgrbase
 ./testheapimp ./testheapmgr1
-# ./testheapimp ./testheapmgr2

@@ -68,5 +68,8 @@ run-gnu-kr:
 upload-run:
 	sshpass -p 'C^JvZP.J39' scp  -r -P 2222 ./test/testheapimp_add  sp202481390@sp04.snucse.org:~/assignment3/run/testheapimp_add
 
+upload-all:
+	sshpass -p 'C^JvZP.J39' scp  -r -P 2222 ./reference  sp202481390@sp04.snucse.org:~/assignment3/reference
+
 
 
