@@ -50,3 +50,10 @@ $executablefile LIFO_random 1000000 1000
 $executablefile FIFO_random 1000000 1000
 $executablefile random_fixed 1000000 1000
 $executablefile random_random 1000000 1000
+echo "=============================================================================="
+$executablefile LIFO_fixed 1000000 100
+$executablefile FIFO_fixed 1000000 100
+$executablefile LIFO_random 1000000 100
+$executablefile FIFO_random 1000000 100
+$executablefile random_fixed 1000000 100
+$executablefile random_random 1000000 100

@@ -34,11 +34,19 @@ void chunk_set_next_free_chunk(Chunk_T c, Chunk_T next) {
     c->next = next;
 }
 
+/* Safe footer calculation */
+static size_t get_chunk_size(int units) {
+    return (size_t)((units * CHUNK_UNIT) + CHUNK_UNIT);
+}
+
+static size_t get_total_size(int units) {
+    return get_chunk_size(units) + sizeof(struct ChunkFooter);
+}
+
 Footer_T chunk_get_footer(Chunk_T c) {
     assert(c != NULL);
     assert(c->units >= 0);
-    Footer_T footer = (Footer_T)((char *)c + (c->units * CHUNK_UNIT) + CHUNK_UNIT);
-    return footer;
+    return (Footer_T)((char *)c + get_chunk_size(c->units));
 }
 
 void chunk_set_footer(Chunk_T c) {
@@ -58,9 +66,15 @@ Chunk_T chunk_get_prev_from_footer(void *ptr, void *start) {
     
     Footer_T prev_footer = (Footer_T)footer_addr;
     if (!prev_footer || !prev_footer->header) return NULL;
-    if ((void *)prev_footer->header < start) return NULL;
     
-    return prev_footer->header;
+    Chunk_T prev = prev_footer->header;
+    if ((void *)prev < start) return NULL;
+    
+    /* Validate that this footer actually belongs to the previous chunk */
+    Footer_T check_footer = chunk_get_footer(prev);
+    if (check_footer != prev_footer) return NULL;
+    
+    return prev;
 }
 
 /* Safe validation function */
@@ -73,38 +87,40 @@ int chunk_is_valid(Chunk_T c, void *start, void *end) {
     if (c->units <= 0) return 0;
     
     /* Validate chunk boundaries */
-    size_t chunk_size = (size_t)(c->units * CHUNK_UNIT) + CHUNK_UNIT;
+    size_t chunk_size = get_chunk_size(c->units);
     void *footer_pos = (void *)((char *)c + chunk_size);
     if (footer_pos >= end) return 0;
-    if (footer_pos + sizeof(struct ChunkFooter) > end) return 0;
+    
+    /* Check if footer would exceed boundary */
+    if ((void *)((char *)footer_pos + sizeof(struct ChunkFooter)) > end) return 0;
     
     /* Now safe to check footer */
     Footer_T footer = (Footer_T)footer_pos;
     if (!footer) return 0;
-    if ((void *)footer + sizeof(struct ChunkFooter) > end) return 0;
     
-    /* Check header-footer linkage */
+    /* Verify footer points back to this chunk */
     if (footer->header != c) return 0;
     
     return 1;
 }
 
-
 /* Safe adjacency check */
 Chunk_T chunk_get_next_adjacent(Chunk_T c, void *start, void *end) {
+    /* Basic pointer validation */
     if (!c || !start || !end || start >= end) return NULL;
     if ((void *)c < start || (void *)c >= end) return NULL;
     
-    /* Calculate chunk sizes */
-    size_t curr_size = (size_t)(c->units * CHUNK_UNIT) + CHUNK_UNIT + sizeof(struct ChunkFooter);
-    void *next_addr = (void *)((char *)c + curr_size);
+    /* Calculate next chunk position */
+    size_t total_size = get_total_size(c->units);
+    void *next_addr = (void *)((char *)c + total_size);
     
-    /* Basic boundary check */
-    if (next_addr >= end || (char *)next_addr + sizeof(struct Chunk) > end) return NULL;
+    /* Verify next chunk would fit */
+    if (next_addr >= end) return NULL;
+    if ((void *)((char *)next_addr + sizeof(struct Chunk)) > end) return NULL;
     
     Chunk_T next = (Chunk_T)next_addr;
     
-    /* Validate next chunk */
+    /* Extra validation before returning */
     if (!chunk_is_valid(next, start, end)) return NULL;
     
     return next;
