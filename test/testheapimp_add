@@ -22,7 +22,6 @@ $executablefile LIFO_random 100000 1000
 $executablefile FIFO_random 100000 1000
 $executablefile random_fixed 100000 1000
 $executablefile random_random 100000 1000
-$executablefile worst 100000 1000
 echo "=============================================================================="
 $executablefile LIFO_fixed 100000 10000
 $executablefile FIFO_fixed 100000 10000
@@ -30,7 +29,6 @@ $executablefile LIFO_random 100000 10000
 $executablefile FIFO_random 100000 10000
 $executablefile random_fixed 100000 10000
 $executablefile random_random 100000 10000
-$executablefile worst 100000 10000
 echo "=============================================================================="
 $executablefile LIFO_fixed 1000000 10000
 $executablefile FIFO_fixed 1000000 10000
@@ -38,7 +36,6 @@ $executablefile LIFO_random 1000000 10000
 $executablefile FIFO_random 1000000 10000
 $executablefile random_fixed 1000000 10000
 $executablefile random_random 1000000 10000
-$executablefile worst 1000000 10000
 echo "=============================================================================="
 $executablefile LIFO_fixed 1000000 100000
 $executablefile FIFO_fixed 1000000 100000
@@ -46,7 +43,6 @@ $executablefile LIFO_random 1000000 100000
 $executablefile FIFO_random 1000000 100000
 $executablefile random_fixed 1000000 100000
 $executablefile random_random 1000000 100000
-$executablefile worst 1000000 100000
 echo "=============================================================================="
 $executablefile LIFO_fixed 1000000 1000
 $executablefile FIFO_fixed 1000000 1000
@@ -54,4 +50,3 @@ $executablefile LIFO_random 1000000 1000
 $executablefile FIFO_random 1000000 1000
 $executablefile random_fixed 1000000 1000
 $executablefile random_random 1000000 1000
-$executablefile worst 1000000 1000
