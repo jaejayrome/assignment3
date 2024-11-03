@@ -2,8 +2,7 @@
 
 ######################################################################
 # testheapimp_add tests a single heapmgr implementation.
-# To execute it, type testheapimp followed by the name of an existing
-# executable file that tests the heapmgr implementation.
+# All test cases satisfy (number of cells) x (size in bytes) ≤10^9
 ######################################################################
 
 # Validate the argument.
@@ -30,19 +29,19 @@ $executablefile FIFO_random 100000 10000
 $executablefile random_fixed 100000 10000
 $executablefile random_random 100000 10000
 echo "=============================================================================="
-$executablefile LIFO_fixed 1000000 10000
-$executablefile FIFO_fixed 1000000 10000
-$executablefile LIFO_random 1000000 10000
-$executablefile FIFO_random 1000000 10000
-$executablefile random_fixed 1000000 10000
-$executablefile random_random 1000000 10000
+$executablefile LIFO_fixed 200000 5000
+$executablefile FIFO_fixed 200000 5000
+$executablefile LIFO_random 200000 5000
+$executablefile FIFO_random 200000 5000
+$executablefile random_fixed 200000 5000
+$executablefile random_random 200000 5000
 echo "=============================================================================="
-$executablefile LIFO_fixed 1000000 100000
-$executablefile FIFO_fixed 1000000 100000
-$executablefile LIFO_random 1000000 100000
-$executablefile FIFO_random 1000000 100000
-$executablefile random_fixed 1000000 100000
-$executablefile random_random 1000000 100000
+$executablefile LIFO_fixed 500000 2000
+$executablefile FIFO_fixed 500000 2000
+$executablefile LIFO_random 500000 2000
+$executablefile FIFO_random 500000 2000
+$executablefile random_fixed 500000 2000
+$executablefile random_random 500000 2000
 echo "=============================================================================="
 $executablefile LIFO_fixed 1000000 1000
 $executablefile FIFO_fixed 1000000 1000

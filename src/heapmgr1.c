@@ -42,6 +42,13 @@ static void init_my_heap(void)
     }
 }
 
+static int is_valid_free_chunk(Chunk_T c)
+{
+    if (!c || (void *)c < g_heap_start || (void *)c >= g_heap_end)
+        return 0;
+    return (c->units > 0);
+}
+
 /* Safe chunk validation */
 static int is_valid_chunk(Chunk_T c)
 {
@@ -63,16 +70,10 @@ static int is_valid_chunk(Chunk_T c)
 /* Safe merge function */
 static Chunk_T merge_chunk(Chunk_T c1, Chunk_T c2)
 {
-    if (!c1 || !c2 || !is_valid_chunk(c1) || !is_valid_chunk(c2))
-        return c1;
-    if ((void *)c2 <= (void *)c1 || chunk_get_status(c2) != CHUNK_FREE)
+    if (!c1 || !c2 || (void *)c2 <= (void *)c1)
         return c1;
 
     size_t total_units = chunk_get_units(c1) + chunk_get_units(c2) + 1 + FOOTER_UNITS;
-    void *merged_end = (void *)((char *)c1 + TOTAL_CHUNK_SIZE(total_units - 1 - FOOTER_UNITS));
-    if (merged_end > g_heap_end)
-        return c1;
-
     chunk_set_units(c1, total_units - 1 - FOOTER_UNITS);
     chunk_set_next_free_chunk(c1, chunk_get_next_free_chunk(c2));
     chunk_set_footer(c1);
@@ -110,33 +111,16 @@ static Chunk_T split_chunk(Chunk_T c, size_t units)
 /* Fast insert with safety checks */
 static void insert_chunk(Chunk_T c)
 {
-    if (!c || !is_valid_chunk(c))
-        return;
-
     chunk_set_status(c, CHUNK_FREE);
     chunk_set_footer(c);
+    chunk_set_next_free_chunk(c, g_free_head);
+    g_free_head = c;
 
+    /* Attempt merge only if next is free head */
     Chunk_T next = chunk_get_next_adjacent(c, g_heap_start, g_heap_end);
-    if (next && chunk_get_status(next) == CHUNK_FREE)
+    if (next && next == g_free_head && chunk_get_status(next) == CHUNK_FREE)
     {
-        /* Find next in free list */
-        if (next == g_free_head)
-        {
-            g_free_head = c;
-            chunk_set_next_free_chunk(c, chunk_get_next_free_chunk(next));
-            merge_chunk(c, next);
-        }
-        else
-        {
-            chunk_set_next_free_chunk(c, g_free_head);
-            g_free_head = c;
-            merge_chunk(c, next);
-        }
-    }
-    else
-    {
-        chunk_set_next_free_chunk(c, g_free_head);
-        g_free_head = c;
+        g_free_head = merge_chunk(c, next);
     }
 }
 
@@ -227,7 +211,9 @@ void heapmgr_free(void *m)
         return;
 
     Chunk_T c = get_chunk_from_data_ptr(m);
-    if (!is_valid_chunk(c) || chunk_get_status(c) != CHUNK_IN_USE)
+    /* Only check heap bounds and chunk is in use */
+    if ((void *)c < g_heap_start || (void *)c >= g_heap_end ||
+        chunk_get_status(c) != CHUNK_IN_USE)
         return;
 
     insert_chunk(c);
